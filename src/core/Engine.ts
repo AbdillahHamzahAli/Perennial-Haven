@@ -9,6 +9,8 @@ export class Engine {
   readonly renderer: THREE.WebGLRenderer
   private clock = new THREE.Clock()
   private updaters: UpdateFn[] = []
+  private resizers: ((width: number, height: number) => void)[] = []
+  private renderFn: (() => void) | null = null
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
@@ -23,12 +25,23 @@ export class Engine {
     this.updaters.push(fn)
   }
 
+  /** Dipanggil setiap ukuran jendela berubah (mis. untuk render target post-processing). */
+  onResize(fn: (width: number, height: number) => void) {
+    this.resizers.push(fn)
+  }
+
+  /** Ganti cara menggambar frame (mis. lewat EffectComposer). `null` = render langsung. */
+  setRender(fn: (() => void) | null) {
+    this.renderFn = fn
+  }
+
   start() {
     this.renderer.setAnimationLoop(() => {
       const delta = this.clock.getDelta()
       const elapsed = this.clock.elapsedTime
       this.updaters.forEach((fn) => fn(delta, elapsed))
-      this.renderer.render(this.scene, this.camera)
+      if (this.renderFn) this.renderFn()
+      else this.renderer.render(this.scene, this.camera)
     })
   }
 
@@ -36,5 +49,6 @@ export class Engine {
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
     this.renderer.setSize(window.innerWidth, window.innerHeight)
+    this.resizers.forEach((fn) => fn(window.innerWidth, window.innerHeight))
   }
 }

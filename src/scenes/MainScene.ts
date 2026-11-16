@@ -3,9 +3,13 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js'
 import type { Engine } from '../core/Engine'
 import { CameraRig } from '../core/CameraRig'
 import { LookControl } from '../core/LookControl'
+import { PostProcessing } from '../core/PostProcessing'
 import { ScrollProgress } from '../core/ScrollProgress'
 import { Shop } from '../objects/Shop'
 import { Shelf } from '../objects/Shelf'
+import { Ground } from '../objects/Ground'
+import { Grass } from '../objects/Grass'
+import { createTerrain } from '../objects/terrain'
 import { segment, smoothstep } from '../utils/math'
 
 /**
@@ -15,13 +19,29 @@ import { segment, smoothstep } from '../utils/math'
 const SKY = {
   sunElevation: 45, // derajat di atas horizon (siang)
   sunAzimuth: 30, // derajat, 0 = arah +Z (depan toko)
-  exposure: 0.8,
-  horizon: 0xdbe7f0, // warna kabut, disamakan dengan langit dekat horizon
+  exposure: 0.9,
+  horizon: 0xcfe6ea, // warna kabut: biru-tosca muda seperti langit dekat horizon
+  fogNear: 6,
+  fogFar: 60,
+}
+
+/** nuansa akhir gambar (post-processing) */
+const LOOK = {
+  bloom: { strength: 0.012, radius: 0.5, threshold: 1 }, // langit sangat terang (HDR), jadi nilainya kecil
+  tint: 0xdff6f2, // geser ke tosca
+  tintAmount: 0.6,
+  saturation: 1.12,
+  contrast: 0.96,
+  vignette: 0.28,
 }
 
 const TIMELINE = {
   doorsOpen: [0.1, 0.35] as const, // rentang scroll untuk animasi pintu
+  grassHiddenAfter: 0.7, // kamera sudah di dalam toko → rumput tidak dirender
 }
+
+/** jalan setapak dari depan halaman ke pintu toko */
+const PATH = { halfWidth: 1, startZ: 3, endZ: 16 }
 
 export function createMainScene(engine: Engine) {
   const { scene, camera } = engine
@@ -43,7 +63,7 @@ export function createMainScene(engine: Engine) {
   u.sunPosition.value.copy(sunDir)
   scene.add(sky)
   scene.background = null
-  scene.fog = new THREE.Fog(SKY.horizon, 40, 150) // tepi tanah menyatu dengan horizon
+  scene.fog = new THREE.Fog(SKY.horizon, SKY.fogNear, SKY.fogFar) // bukit jauh memudar ke warna langit
 
   engine.renderer.toneMapping = THREE.ACESFilmicToneMapping
   engine.renderer.toneMappingExposure = SKY.exposure
@@ -55,18 +75,31 @@ export function createMainScene(engine: Engine) {
   sun.castShadow = true
   scene.add(sun)
 
-  // tanah
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(400, 400),
-    new THREE.MeshStandardMaterial({ color: 0xa8c49a }),
-  )
-  ground.rotation.x = -Math.PI / 2
-  ground.position.y = -0.1
-  ground.receiveShadow = true
-  scene.add(ground)
-
   const shop = new Shop()
   scene.add(shop)
+
+  // bukit landai; area toko, jalan setapak, dan jalur kamera dijaga datar
+  const heightAt = createTerrain({ flat: { minX: -7, maxX: 7, minZ: -7, maxZ: 22 } })
+
+  // tanah (variasi warna procedural + jalan setapak)
+  const ground = new Ground({ size: 400, path: PATH, heightAt, lawnRadius: 20 })
+  ground.position.y = -0.1
+  scene.add(ground)
+
+  // rumput 3D hanya di halaman yang terlihat kamera; sisanya cukup warna tanah + kabut
+  const half = shop.width / 2 + 0.4
+  const grass = new Grass({
+    area: { minX: -22, maxX: 22, minZ: -20, maxZ: 13 },
+    holes: [
+      { minX: -half, maxX: half, minZ: -half, maxZ: half }, // bawah toko
+      { minX: -PATH.halfWidth + 0.05, maxX: PATH.halfWidth - 0.05, minZ: PATH.startZ, maxZ: PATH.endZ }, // jalan
+    ],
+    count: 140000,
+    edgeFade: 9,
+    heightAt,
+  })
+  grass.position.y = -0.1
+  scene.add(grass)
 
   const shelf = new Shelf()
   shelf.position.set(0, 0, -shop.depth / 2 + 0.4)
@@ -83,17 +116,24 @@ export function createMainScene(engine: Engine) {
   // menoleh kiri/kanan & atas/bawah (drag / tombol panah), dibatasi ±10°
   const look = new LookControl(camera, engine.renderer.domElement)
 
+  // bloom lembut + color grading + vignette
+  const post = new PostProcessing(engine.renderer, scene, camera, LOOK)
+  engine.onResize((w, h) => post.setSize(w, h))
+  engine.setRender(() => post.render())
+
   const scroll = new ScrollProgress()
   engine.onUpdate((delta, elapsed) => {
     scroll.update(delta)
     const p = scroll.value
     shop.setOpen(smoothstep(segment(p, ...TIMELINE.doorsOpen)))
     sky.material.uniforms.time.value = elapsed // awan bergerak pelan
+    grass.visible = p < TIMELINE.grassHiddenAfter
+    grass.update(elapsed)
     rig.update(p)
     look.apply(delta)
     // bucket sedikit bergoyang
     shelf.items.forEach((item, i) => (item.rotation.y = Math.sin(elapsed * 0.6 + i) * 0.15))
   })
 
-  return { shop, shelf }
+  return { shop, shelf, grass }
 }
