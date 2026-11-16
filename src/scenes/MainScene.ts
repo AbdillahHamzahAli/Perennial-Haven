@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { Engine } from '../core/Engine'
 import { CameraRig } from '../core/CameraRig'
+import { LookControl } from '../core/LookControl'
 import { ScrollProgress } from '../core/ScrollProgress'
 import { Shop } from '../objects/Shop'
 import { Shelf } from '../objects/Shelf'
@@ -49,12 +50,16 @@ export function createMainScene(engine: Engine) {
     { at: 1.0, position: { x: 0, y: 1.4, z: -0.6 }, lookAt: { x: 0, y: 1.3, z: -2.6 } },
   ])
 
+  // menoleh kiri/kanan & atas/bawah (drag / tombol panah), dibatasi ±10°
+  const look = new LookControl(camera, engine.renderer.domElement)
+
   const scroll = new ScrollProgress()
   engine.onUpdate((delta, elapsed) => {
     scroll.update(delta)
     const p = scroll.value
     shop.setOpen(smoothstep(segment(p, ...TIMELINE.doorsOpen)))
     rig.update(p)
+    look.apply(delta)
     // bucket sedikit bergoyang
     shelf.items.forEach((item, i) => (item.rotation.y = Math.sin(elapsed * 0.6 + i) * 0.15))
   })
