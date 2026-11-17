@@ -51,6 +51,18 @@ const INTRO = {
   duration: 2.2, // detik
 }
 
+/**
+ * Layar sempit/potret (mobile): lebar pandang horizontal kecil, jadi rumah terpotong.
+ * Kamera awal dimundurkan sampai selebar `width` meter terlihat di sekitar toko.
+ * Tambahan jarak ini memudar selama `fadeOut` (rentang scroll) menuju keyframe berikutnya.
+ */
+const FRAMING = {
+  width: 11, // lebar area (meter) yang minimal harus terlihat di sekitar toko
+  baseDistance: 14, // jarak keyframe pertama ke titik lookAt
+  maxExtra: 10, // batas tambahan jarak (meter)
+  fadeOut: [0, 0.35] as const,
+}
+
 /** jalan setapak dari depan halaman ke pintu toko */
 const PATH = { halfWidth: 1, startZ: 3, endZ: 16 }
 
@@ -153,11 +165,21 @@ export function createMainScene(engine: Engine) {
     grass.visible = p < TIMELINE.grassHiddenAfter
     grass.update(elapsed)
     rig.update(p)
+    camera.getWorldDirection(forward)
+
+    // mobile/potret: mundur sepanjang arah pandang (rumah tetap di tengah layar)
+    const halfTan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))
+    const needed = FRAMING.width / 2 / (halfTan * camera.aspect)
+    const extra = Math.min(FRAMING.maxExtra, Math.max(0, needed - FRAMING.baseDistance))
+    if (extra > 0) {
+      const keep = 1 - smoothstep(segment(p, ...FRAMING.fadeOut))
+      camera.position.addScaledVector(forward, -extra * keep)
+    }
+
     if (introPlaying) intro = Math.min(1, intro + delta / INTRO.duration)
     if (intro < 1) {
       // ease-out kubik: cepat di awal, melambat halus saat sampai
       const back = Math.pow(1 - intro, 3)
-      camera.getWorldDirection(forward)
       camera.position.addScaledVector(forward, -INTRO.distance * back)
       camera.position.y += INTRO.lift * back
     }
