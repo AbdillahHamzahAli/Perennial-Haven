@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeStaticMeshes } from '../utils/mergeStatic'
 
 /** Warna bangunan (sRGB). Diubah di sini untuk menggeser nuansa fasad. */
 const COLORS = {
@@ -65,7 +66,7 @@ export class Shop extends THREE.Group {
       return mesh
     }
 
-    // lantai / paving (sampai tepi area tanpa rumput)
+    // sampai tepi area tanpa rumput
     const floorMesh = new THREE.Mesh(
       new THREE.BoxGeometry(w + 0.8, 0.1, d + 0.8),
       new THREE.MeshStandardMaterial({ color: COLORS.floor }),
@@ -113,7 +114,6 @@ export class Shop extends THREE.Group {
       return g
     }
 
-    // jendela lantai bawah
     for (const x of [-1.8, 1.8]) {
       const win = glassPanel(1.4, 1.7, 0.06, doorMat, glassLow, 2)
       win.position.set(x, 1.55, fz)
@@ -134,7 +134,6 @@ export class Shop extends THREE.Group {
     this.leftDoor = makeLeaf(-1)
     this.rightDoor = makeLeaf(1)
 
-    // papan nama
     const sign = new THREE.Mesh(
       new THREE.PlaneGeometry(1.7, 0.64),
       new THREE.MeshBasicMaterial({ map: createSignTexture(), transparent: true, toneMapped: false }),
@@ -142,14 +141,12 @@ export class Shop extends THREE.Group {
     sign.position.set(0, 2.8, d / 2 + 0.01)
     sign.userData.noShadow = true
 
-    // unit AC di dinding
     const acMat = new THREE.MeshStandardMaterial({ color: 0xf4f4f2 })
     for (const x of [-2.25, 2.25]) {
       const ac = box(x - 0.28, x + 0.28, 2.65, 3.0, d / 2 + 0.12, 0.24, acMat)
       front.add(ac)
     }
 
-    // kolom kayu di kiri (menopang kanopi)
     const column = box(-w / 2, -w / 2 + 0.32, 0, h, d / 2 + 0.2, 0.3, wood)
 
     // kanopi baja gelap dengan rusuk di bawahnya
@@ -200,6 +197,9 @@ export class Shop extends THREE.Group {
       o.castShadow = !(glass || o.userData.noShadow)
       o.receiveShadow = !o.userData.noShadow
     })
+
+    // satu mesh per material; pintu tetap terpisah karena beranimasi
+    mergeStaticMeshes(this, [this.leftDoor, this.rightDoor])
   }
 
   /** 0 = tertutup, 1 = terbuka penuh */

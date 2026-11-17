@@ -12,8 +12,12 @@ export class Engine {
   private resizers: ((width: number, height: number) => void)[] = []
   private renderFn: (() => void) | null = null
 
-  constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
+  /**
+   * `antialias: false` bila frame digambar lewat post-processing yang punya MSAA sendiri;
+   * MSAA di canvas hanya membuang memori & bandwidth karena canvas cuma menerima quad layar penuh.
+   */
+  constructor(canvas: HTMLCanvasElement, options: { antialias?: boolean } = {}) {
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: options.antialias ?? true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     this.renderer.shadowMap.enabled = true
     this.scene.background = new THREE.Color(0xf4ece1)

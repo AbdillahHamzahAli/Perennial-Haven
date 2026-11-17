@@ -2,11 +2,11 @@ import * as THREE from 'three'
 import { clamp, lerp } from '../utils/math'
 
 export interface LookControlOptions {
-  /** batas menoleh kiri/kanan ke tiap sisi (radian). Default 10°. */
+  /** batas menoleh kiri/kanan ke tiap sisi (radian). Default 5°. */
   maxYaw?: number
-  /** batas mendongak/menunduk ke tiap sisi (radian). Default 10°. */
+  /** batas mendongak/menunduk ke tiap sisi (radian). Default 5°. */
   maxPitch?: number
-  /** radian per piksel saat drag */
+  /** radian per piksel saat drag (layar sentuh) */
   dragSensitivity?: number
   /** radian per detik saat tombol panah ditahan */
   keySpeed?: number
@@ -16,7 +16,11 @@ export interface LookControlOptions {
 
 /**
  * Menoleh kiri/kanan (yaw) dan atas/bawah (pitch) di atas orientasi kamera dari CameraRig.
- * Input: drag mouse (atau geser jari horizontal), atau tombol panah.
+ * Input:
+ * - mouse: pandangan mengikuti posisi kursor (tanpa klik); tengah layar = lurus,
+ *   tepi layar = batas maksimum. Kursor keluar jendela → kembali ke tengah.
+ * - layar sentuh: geser jari horizontal.
+ * - tombol panah.
  * Panggil `apply()` SETELAH `CameraRig.update()` setiap frame.
  */
 export class LookControl {
@@ -41,26 +45,34 @@ export class LookControl {
 
   constructor(camera: THREE.Camera, element: HTMLElement, options: LookControlOptions = {}) {
     this.camera = camera
-    this.maxYaw = options.maxYaw ?? THREE.MathUtils.degToRad(10)
-    this.maxPitch = options.maxPitch ?? THREE.MathUtils.degToRad(10)
+    this.maxYaw = options.maxYaw ?? THREE.MathUtils.degToRad(5)
+    this.maxPitch = options.maxPitch ?? THREE.MathUtils.degToRad(5)
     this.dragSensitivity = options.dragSensitivity ?? 0.001
     this.keySpeed = options.keySpeed ?? 0.3
     this.smoothing = options.smoothing ?? 8
 
     // sentuhan vertikal tetap men-scroll halaman, horizontal dipakai untuk menoleh
     element.style.touchAction = 'pan-y'
-    element.style.cursor = 'grab'
 
+    // didengar di window supaya tetap jalan di atas elemen lain
+    window.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return
+      const nx = (e.clientX / window.innerWidth) * 2 - 1 // -1 kiri .. 1 kanan
+      const ny = (e.clientY / window.innerHeight) * 2 - 1 // -1 atas .. 1 bawah
+      // kursor ke kanan → menoleh ke kanan, kursor ke atas → mendongak
+      this.setTarget(-nx * this.maxYaw, -ny * this.maxPitch)
+    })
+    document.documentElement.addEventListener('mouseleave', () => this.setTarget(0, 0))
+
+    // layar sentuh: gaya "menggenggam"
     element.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return
       this.dragging = true
       this.lastX = e.clientX
       this.lastY = e.clientY
-      element.setPointerCapture(e.pointerId)
-      element.style.cursor = 'grabbing'
     })
     element.addEventListener('pointermove', (e) => {
-      if (!this.dragging) return
-      // gaya "menggenggam": geser ke kanan → pandangan ke kiri, geser ke bawah → pandangan ke atas
+      if (!this.dragging || e.pointerType === 'mouse') return
       this.setTarget(
         this.targetYaw + (e.clientX - this.lastX) * this.dragSensitivity,
         this.targetPitch + (e.clientY - this.lastY) * this.dragSensitivity,
@@ -68,11 +80,7 @@ export class LookControl {
       this.lastX = e.clientX
       this.lastY = e.clientY
     })
-    const stop = (e: PointerEvent) => {
-      this.dragging = false
-      if (element.hasPointerCapture(e.pointerId)) element.releasePointerCapture(e.pointerId)
-      element.style.cursor = 'grab'
-    }
+    const stop = () => (this.dragging = false)
     element.addEventListener('pointerup', stop)
     element.addEventListener('pointercancel', stop)
 

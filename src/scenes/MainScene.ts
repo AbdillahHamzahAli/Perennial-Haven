@@ -68,12 +68,17 @@ export function createMainScene(engine: Engine) {
   engine.renderer.toneMapping = THREE.ACESFilmicToneMapping
   engine.renderer.toneMappingExposure = SKY.exposure
 
-  // cahaya
   scene.add(new THREE.HemisphereLight(0xdfeeff, 0xcdb89a, 1.3))
   const sun = new THREE.DirectionalLight(0xfff4e0, 2.6)
   sun.position.copy(sunDir).multiplyScalar(12)
   sun.castShadow = true
   scene.add(sun)
+
+  // matahari & toko diam; satu-satunya pemberi bayangan yang bergerak adalah pintu.
+  // Shadow map cukup digambar ulang saat pintu berubah, bukan setiap frame.
+  const shadowMap = engine.renderer.shadowMap
+  shadowMap.autoUpdate = false
+  shadowMap.needsUpdate = true
 
   const shop = new Shop()
   scene.add(shop)
@@ -81,7 +86,6 @@ export function createMainScene(engine: Engine) {
   // bukit landai; area toko, jalan setapak, dan jalur kamera dijaga datar
   const heightAt = createTerrain({ flat: { minX: -7, maxX: 7, minZ: -7, maxZ: 22 } })
 
-  // tanah (variasi warna procedural + jalan setapak)
   const ground = new Ground({ size: 400, path: PATH, heightAt, lawnRadius: 20 })
   ground.position.y = -0.1
   scene.add(ground)
@@ -113,25 +117,28 @@ export function createMainScene(engine: Engine) {
     { at: 1.0, position: { x: 0, y: 1.4, z: -0.6 }, lookAt: { x: 0, y: 1.3, z: -2.6 } },
   ])
 
-  // menoleh kiri/kanan & atas/bawah (drag / tombol panah), dibatasi ±10°
   const look = new LookControl(camera, engine.renderer.domElement)
 
-  // bloom lembut + color grading + vignette
   const post = new PostProcessing(engine.renderer, scene, camera, LOOK)
   engine.onResize((w, h) => post.setSize(w, h))
   engine.setRender(() => post.render())
 
   const scroll = new ScrollProgress()
+  let doorOpen = -1
   engine.onUpdate((delta, elapsed) => {
     scroll.update(delta)
     const p = scroll.value
-    shop.setOpen(smoothstep(segment(p, ...TIMELINE.doorsOpen)))
+    const door = smoothstep(segment(p, ...TIMELINE.doorsOpen))
+    if (door !== doorOpen) {
+      doorOpen = door
+      shop.setOpen(door)
+      shadowMap.needsUpdate = true
+    }
     sky.material.uniforms.time.value = elapsed // awan bergerak pelan
     grass.visible = p < TIMELINE.grassHiddenAfter
     grass.update(elapsed)
     rig.update(p)
     look.apply(delta)
-    // bucket sedikit bergoyang
     shelf.items.forEach((item, i) => (item.rotation.y = Math.sin(elapsed * 0.6 + i) * 0.15))
   })
 

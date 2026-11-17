@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { bouquets } from '../data/flowers'
 import { createBouquet } from './BouquetModel'
+import { mergeStaticMeshes } from '../utils/mergeStatic'
 
 export interface ShelfOptions {
   columns: number
@@ -46,5 +47,8 @@ export class Shelf extends THREE.Group {
       this.items.push(item)
       this.add(item)
     })
+
+    // papan & sekat digabung; bucket dibiarkan terpisah (bergoyang & nanti di-raycast)
+    mergeStaticMeshes(this, this.items)
   }
 }

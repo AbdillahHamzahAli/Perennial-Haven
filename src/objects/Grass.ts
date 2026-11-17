@@ -142,7 +142,7 @@ function createBladeGeometry() {
   ]
   const pos: number[] = []
   for (const [y, hw, z] of rows) pos.push(-hw, y, z, hw, y, z)
-  pos.push(0, 1, 0.3) // ujung
+  pos.push(0, 1, 0.3)
 
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
