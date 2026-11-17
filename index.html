@@ -1,14 +1,32 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Perennial Haven</title>
   </head>
   <body>
     <canvas id="app"></canvas>
     <div id="scroll-space"></div>
+
+    <section id="landing" class="landing">
+      <div class="landing__content">
+        <img class="landing__logo" src="/logo.svg" alt="Perennial Haven — Flower &amp; Gift" />
+        <p class="landing__desc">
+          Toko bunga kecil yang merangkai bucket segar untuk setiap momen —
+          ulang tahun, wisuda, hingga ucapan terima kasih.
+        </p>
+        <button class="landing__enter" type="button" data-enter>Enter</button>
+      </div>
+      <button class="landing__muted" type="button" data-enter-muted>enter without audio</button>
+    </section>
+
+    <!-- toggle audio (kiri bawah), muncul setelah masuk -->
+    <button id="audio-toggle" class="audio-toggle" type="button" aria-pressed="false" aria-label="Nyalakan audio">
+      <span class="audio-toggle__bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    </button>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

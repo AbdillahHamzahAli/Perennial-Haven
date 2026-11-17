@@ -40,6 +40,17 @@ const TIMELINE = {
   grassHiddenAfter: 0.7, // kamera sudah di dalam toko → rumput tidak dirender
 }
 
+/**
+ * Kamera "maju sedikit" saat tombol Enter di halaman pembuka diklik.
+ * Satu-satunya animasi berbasis waktu: terjadi sekali sebelum scroll dibuka,
+ * dan offset-nya habis (0) sebelum user mulai scroll, jadi tidak bentrok dengan timeline.
+ */
+const INTRO = {
+  distance: 3, // meter mundur dari keyframe pertama selama halaman pembuka tampil
+  lift: 0.4, // sedikit lebih tinggi
+  duration: 2.2, // detik
+}
+
 /** jalan setapak dari depan halaman ke pintu toko */
 const PATH = { halfWidth: 1, startZ: 3, endZ: 16 }
 
@@ -125,6 +136,10 @@ export function createMainScene(engine: Engine) {
 
   const scroll = new ScrollProgress()
   let doorOpen = -1
+  // 0 = kamera masih mundur (halaman pembuka), 1 = sudah di keyframe pertama
+  let intro = 0
+  let introPlaying = false
+  const forward = new THREE.Vector3()
   engine.onUpdate((delta, elapsed) => {
     scroll.update(delta)
     const p = scroll.value
@@ -138,9 +153,22 @@ export function createMainScene(engine: Engine) {
     grass.visible = p < TIMELINE.grassHiddenAfter
     grass.update(elapsed)
     rig.update(p)
+    if (introPlaying) intro = Math.min(1, intro + delta / INTRO.duration)
+    if (intro < 1) {
+      // ease-out kubik: cepat di awal, melambat halus saat sampai
+      const back = Math.pow(1 - intro, 3)
+      camera.getWorldDirection(forward)
+      camera.position.addScaledVector(forward, -INTRO.distance * back)
+      camera.position.y += INTRO.lift * back
+    }
     look.apply(delta)
     shelf.items.forEach((item, i) => (item.rotation.y = Math.sin(elapsed * 0.6 + i) * 0.15))
   })
 
-  return { shop, shelf, grass }
+  /** jalankan animasi kamera maju (dipanggil saat user menekan Enter) */
+  const enter = () => {
+    introPlaying = true
+  }
+
+  return { shop, shelf, grass, enter }
 }
