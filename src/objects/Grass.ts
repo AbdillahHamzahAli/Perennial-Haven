@@ -29,11 +29,11 @@ export interface GrassOptions {
 
 /** Palet rumput (sRGB). Diubah di sini untuk menggeser nuansa padang. */
 const COLORS = {
-  base: 0x1d4a26, // pangkal: gelap, kesan bayangan di sela helai
-  mid: 0x3f8a3c,
-  tipA: 0x8fc556, // ujung hijau muda
-  tipB: 0xc2d46a, // ujung kekuningan (petak-petak)
-  tipC: 0x74b85c, // ujung kebiruan (petak-petak)
+  base: 0x2f6a35, // pangkal: sedikit lebih gelap, tidak kontras
+  mid: 0x4f9442,
+  tipA: 0x86bd58, // ujung hijau muda
+  tipB: 0xa3c862, // ujung kekuningan lembut (petak-petak)
+  tipC: 0x7bb862, // ujung kebiruan lembut (petak-petak)
 }
 
 /**
@@ -60,7 +60,7 @@ export class Grass extends THREE.Group {
       holes = [],
       count = 120000,
       edgeFade = 6,
-      height = [0.45, 0.85],
+      height = [0.2, 0.38],
       width = [0.035, 0.055],
       heightAt = () => 0,
       seed = 7,
@@ -110,8 +110,8 @@ export class Grass extends THREE.Group {
       mesh.setMatrixAt(placed, dummy.matrix)
 
       // variasi kecil per helai di sekitar putih (warna utama dari shader)
-      const v = 0.85 + rand() * 0.3
-      tint.setRGB(v * (0.95 + rand() * 0.1), v, v * (0.9 + rand() * 0.1))
+      const v = 0.93 + rand() * 0.14
+      tint.setRGB(v * (0.98 + rand() * 0.04), v, v * (0.97 + rand() * 0.06))
       mesh.setColorAt(placed, tint)
       placed++
     }
@@ -222,16 +222,11 @@ const FRAGMENT_COLOR = /* glsl */ `
   // petak warna besar di ujung helai: hijau muda / kekuningan / kebiruan
   float pA = gNoise( vRoot * 0.07 + 13.0 );
   float pB = gNoise( vRoot * 0.11 - 7.0 );
-  vec3 tip = mix( uTipA, uTipB, smoothstep( 0.45, 0.85, pA ) );
-  tip = mix( tip, uTipC, smoothstep( 0.5, 0.9, pB ) );
+  vec3 tip = mix( uTipA, uTipB, smoothstep( 0.2, 0.95, pA ) * 0.6 );
+  tip = mix( tip, uTipC, smoothstep( 0.2, 1.0, pB ) * 0.6 );
 
-  // gradasi pangkal gelap → tengah → ujung
-  float h = vHeight;
-  vec3 col = mix( uBase, uMid, smoothstep( 0.0, 0.45, h ) );
-  col = mix( col, tip, smoothstep( 0.35, 1.0, h ) );
-
-  // gelombang angin terlihat sebagai sapuan terang di ujung helai
-  col *= 1.0 + vWind * vWind * 0.45 * h;
+  // warna rata (tanpa gradasi sepanjang helai); hanya berubah lembut antar petak padang
+  vec3 col = mix( uMid, tip, 0.5 );
 
   diffuseColor.rgb *= col; // diffuseColor sudah membawa variasi per helai (instanceColor)
 }
